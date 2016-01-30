@@ -1,0 +1,78 @@
+<html>
+<head>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
+  </script>
+
+<script src="//apis.google.com/js/platform.js?onload=start"> </script>
+
+</head>
+
+<body>
+<div id="sign-in-button">
+	<span class="g-signin"
+	data-scope="openid email"
+	data-clientid="498475077013-fvh757vbupj77v2og6n89ksqlds69ve0.apps.googleusercontent.com"
+	data-redirecturl="postmessage"
+	data-accesstype="offline"
+	data-cookiepolicy="single_host_origin"
+	data-callback="signInCallback"
+	data-approvalprompt="force">
+	</span>
+</div>
+<div id="result"></div>
+
+<div
+  class="fb-like"
+  data-share="true"
+  data-width="450"
+  data-show-faces="true">
+</div>
+
+<!--Google login-->
+<script>
+function signInCallBack(authResult) {
+	if (authResult['code']) {
+		$('#sign-in-button').attr('style', 'display:none');
+		$.ajax({
+			type: 'POST',
+			url: '/gconnect?state={{STATE}}',
+			processData: false,
+			contentType: 'application/octet-stream; charset=utf-8',
+			data: authResult['code'],
+			success: function(result) {
+				if (result) {
+					$('#result').html('Login successful!</br>' + result
+						+ '<br>Redirecting...')
+					setTimeout(function(){
+						window.location.href="/catalog";
+					}, 4000);
+				}
+				else if (authResult['error']) {
+					console.log('There was an error:' +
+						authResult['error']);
+				} else {
+					$('#result').html('Failed to make a server side call');
+				}
+			}
+		})
+	}
+}
+</script>
+
+<script>
+  window.fbAsyncInit = function() {
+    FB.init({
+      appId      : '448326825366368',
+      xfbml      : true,
+      version    : 'v2.5'
+    });
+  };
+
+  (function(d, s, id){
+     var js, fjs = d.getElementsByTagName(s)[0];
+     if (d.getElementById(id)) {return;}
+     js = d.createElement(s); js.id = id;
+     js.src = "//connect.facebook.net/en_US/sdk.js";
+     fjs.parentNode.insertBefore(js, fjs);
+   }(document, 'script', 'facebook-jssdk'));
+</script>

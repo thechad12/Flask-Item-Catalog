@@ -1,0 +1,32 @@
+<html>
+<head>
+	<link rel=stylesheet type=text/css
+	href = "{{url_for('static', filename='styledelete.css')}}">
+	</head>
+
+<body>
+<div class='title'>
+	<h2>Are you sure you want to delete {{puppy.name}}?</h2>
+	</div>
+<div class='messages'>
+	{% with messages = get_flashed_messages() %}
+{% if messages %}
+	<ul>
+	{% for message in messages %}
+		<li><strong>{{messsage}}</strong></li>
+	{% endfor %}
+	</ul>
+	{% endif %}
+{% endwith %}
+</div>
+
+<form action="{{url_for(deletePuppy, shelter_id=puppy.shelter_id,
+puppy_id=puppy.id)}}" method='post'>
+
+<input type='submit', value='Delete'>
+</form>
+
+<a href="url_for{{('shelters', 'shelter_id=shelter_id')}}">Cancel</a>
+
+</body>
+</html>
