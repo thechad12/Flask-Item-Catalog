@@ -39,172 +39,20 @@ def itemsJSON():
 	items = session.query(Item).all()
 	return jsonify(items=[i.serialize for i in items])
 
-@app.route('/category/JSON/')
+@app.route('/category/<int:category_id>/JSON/')
 def categoryJSON(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	items = session.query(Item).filter_by(category_id=category_id).all()
 	return jsonify(items=[i.serialize for i in items])
 
 # Create anti-forgery state token
-@app.route('/login')
+@app.route('/login/')
 def showLogin():
 	state = ''.join(random.choice(
 		string.ascii_uppercase + string.digits)
 		for x in range(32))
 	login_session['state'] = state
 	return render_template('login.html', STATE=state)
-
-# Google login session
-@app.route('/gconnect', methods=['POST'])
-def gconnect():
-	 # Validate state token
-    if request.args.get('state') != login_session['state']:
-        response = make_response(json.dumps('Invalid state parameter.'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-    # Obtain authorization code
-    code = request.data
-
-    try:
-        # Upgrade the authorization code into a credentials object
-        google = json.loads(open('google.json', 'r').read())
-        oauth_flow = flow_from_clientsecrets('google.json', scope='')
-        oauth_flow.redirect_uri = 'postmessage'
-        credentials = oauth_flow.step2_exchange(code)
-        flow = OAuth2WebServerFlow(client_id=google['client_id'],
-        							client_secret=google['client_secret'],
-        							scope='',
-        							redirect_uri=oauth_flow.redirect_uri)
-    except FlowExchangeError:
-        response = make_response(
-            json.dumps('Failed to upgrade the authorization code.'), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    # Check that the access token is valid.
-    access_token = credentials.access_token
-    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
-           % access_token)
-    h = httplib2.Http()
-    http = credentials.authroize(h)
-    result = json.loads(h.request(url, 'GET')[1])
-    # If there was an error in the access token info, abort.
-    if result.get('error') is not None:
-        response = make_response(json.dumps(result.get('error')), 500)
-        response.headers['Content-Type'] = 'application/json'
-
-    # Verify that the access token is used for the intended user.
-    gplus_id = credentials.id_token['sub']
-    if result['user_id'] != gplus_id:
-        response = make_response(
-            json.dumps("Token's user ID doesn't match given user ID."), 401)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    # Verify that the access token is valid for this app.
-    if result['issued_to'] != CLIENT_ID:
-        response = make_response(
-            json.dumps("Token's client ID does not match app's."), 401)
-        print "Token's client ID does not match app's."
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    stored_credentials = login_session.get('credentials.access_token')
-    stored_gplus_id = login_session.get('gplus_id')
-    if stored_credentials is not None and gplus_id == stored_gplus_id:
-        response = make_response(json.dumps('Current user is already connected.'),200)
-        response.headers['Content-Type'] = 'application/json'
-        return response
-
-    # Store the access token in the session for later use.
-    login_session['provider'] = 'google'
-    login_session['credentials'] = credentials.to_json();
-    login_session['gplus_id'] = gplus_id
-    login_session['username'] = data['name']
-    login_session['picture'] = data['picture']
-    login_session['email'] = data['email']
-    login_session['user_id'] = user_id
-
-    # Get user info
-    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
-    params = {'access_token': credentials.access_token, 'alt': 'json'}
-    answer = requests.get(userinfo_url, params=params)
-
-    data = answer.json()
-
-
-    user_id = getUserID(login_session['email'])
-    if not user_id:
-        user_id = createUser(login_session)
-
-
-    output = ''
-    output += '<h1>Welcome, '
-    output += login_session['username']
-    output += '!</h1>'
-    output += '<img src="'
-    output += login_session['picture']
-    output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
-    flash("you are now logged in as %s" % login_session['username'])
-    print "done!"
-    return output
-
-  # Normally, the state is a one-time token; however, in this example,
-  # we want the user to be able to connect and disconnect
-  # without reloading the page.  Thus, for demonstration, we don't
-  # implement this best practice.
-  # del session['state']
-
- #	code = request.data
-
-#	try:
-    # Upgrade the authorization code into a credentials object
- #   		oauth_flow = flow_from_clientsecrets('google.json', scope='')
-  #  		oauth_flow.redirect_uri = 'postmessage'
-   # 		credentials = oauth_flow.step2_exchange(code)
-
-#	except FlowExchangeError:
- #   		response = make_response(
-  #      	json.dumps('Failed to upgrade the authorization code.'), 401)
-   # 		response.headers['Content-Type'] = 'application/json'
-    #		return response
-
-  # An ID Token is a cryptographically-signed JSON object encoded in base 64.
-  # Normally, it is critical that you validate an ID Token before you use it,
-  # but since you are communicating directly with Google over an
-  # intermediary-free HTTPS channel and using your Client Secret to
-  # authenticate yourself to Google, you can be confident that the token you
-  # receive really comes from Google and is valid. If your server passes the
-  # ID Token to other components of your app, it is extremely important that
-  # the other components validate the token before using it.
-#	gplus_id = credentials.id_token['sub']
-#	stored_credentials = session.get('credentials')
-#	stored_gplus_id = session.get('gplus_id')
-
-#	if stored_credentials is not None and gplus_id == stored_gplus_id:
- #   		response = make_response(json.dumps('Current user is already connected.'),
-  #                           200)
-   # 		response.headers['Content-Type'] = 'application/json'
-    #		return response
-  # Store the access token in the session for later use.
-#	login_session['credentials'] = credentials.access_token
-#	login_session['gplus_id'] = gplus_id
-#	response = make_response(json.dumps('Successfully connected user.'), 200)
-#	response.headers['Content-Type'] = 'application/json'
-#	return response
-
-#	output = ''
-#	output += '<h1>Welcome, '
-#	output += login_session['username']
-#	output += '!</h1>'
-#	output += '<img src="'
-#	output += login_session['picture']
-#	output += ' " style = "width: 300px; height: 300px;\
-#	border-radius: 150px; -webkit-border-radius: 150px;\
-#	-moz-border-radius: 150px"> '
-#	flash("You are now logged in as %s" % login_session['username'])
-#	print "Done!"
-#	return output
 
 def createUser(login_session):
 	newUser = User(name=login_session['username'],
@@ -225,6 +73,104 @@ def getUserId(email):
 		return user.id
 	except:
 		return None
+
+# Google login session
+@app.route('/gconnect', methods=['POST'])
+def gconnect():
+	 # Validate state token
+    if request.args.get('state') != login_session['state']:
+        response = make_response(json.dumps('Invalid state parameter.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Obtain authorization code
+    code = request.data
+
+    try:
+        # Upgrade the authorization code into a credentials object
+        google = json.loads(open('google.json', 'r').read())
+        oauth_flow = flow_from_clientsecrets('./google.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        client_id = google['web']['client_id']
+        credentials = oauth_flow.step2_exchange(code)
+        flow = OAuth2WebServerFlow(client_id=google['web']['client_id'],
+        							client_secret=google['web']['client_secret'],
+        							scope='',
+        							redirect_uri=oauth_flow.redirect_uri)
+    except FlowExchangeError:
+        response = make_response(
+            json.dumps('Failed to upgrade the authorization code.'), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Check that the access token is valid.
+    access_token = credentials.access_token
+    url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
+           % access_token)
+    h = httplib2.Http()
+    http = credentials.authorize(h)
+    result = json.loads(h.request(url, 'GET')[1])
+    # If there was an error in the access token info, abort.
+    if result.get('error') is not None:
+        response = make_response(json.dumps(result.get('error')), 500)
+        response.headers['Content-Type'] = 'application/json'
+
+    # Verify that the access token is used for the intended user.
+    gplus_id = credentials.id_token['sub']
+    if result['user_id'] != gplus_id:
+        response = make_response(
+            json.dumps("Token's user ID doesn't match given user ID."), 401)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    # Verify that the access token is valid for this app.
+    if result['issued_to'] != client_id:
+        response = make_response(
+            json.dumps("Token's client ID does not match app's."), 401)
+        print "Token's client ID does not match app's."
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+    stored_credentials = login_session.get('credentials.access_token')
+    stored_gplus_id = login_session.get('gplus_id')
+    if stored_credentials is not None and gplus_id == stored_gplus_id:
+        response = make_response(json.dumps('Current user is already connected.'),200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+
+     # Get user info
+    userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
+    params = {'access_token': credentials.access_token, 'alt': 'json'}
+    answer = requests.get(userinfo_url, params=params)
+    data = answer.json()
+
+
+    # Store the access token in the session for later use.
+    login_session['provider'] = 'google'
+    login_session['credentials'] = credentials.to_json();
+    login_session['gplus_id'] = gplus_id
+    login_session['username'] = data['name']
+    login_session['picture'] = data['picture']
+    login_session['email'] = data['email']
+    user_id = getUserId(login_session['email'])
+    login_session['user_id'] = user_id
+
+
+
+    if not user_id:
+        user_id = createUser(login_session)
+
+
+    output = ''
+    output += '<h1>Welcome, '
+    output += login_session['username']
+    output += '!</h1>'
+    output += '<img src="'
+    output += login_session['picture']
+    output += ' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
+    flash("you are now logged in as %s" % login_session['username'])
+    print "done!"
+    return output
+
 
 @app.route('/gdisconnect')
 def gdisconnect():
@@ -332,36 +278,36 @@ def catalog():
  		return render_template('privatecatalog.html', category=category)
 
 # Show one category with items
-@app.route('/catalog/<int:category_id>/')
+@app.route('/catalog/<int:category_id>/', methods=['GET', 'POST'])
 def showCategory(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	items = session.query(Item).filter_by(
 		category_id=category_id).all()
-	return render_template('category.html', category=category)
+	return render_template('category.html', items=items, category=category)
 
 # Show item with description
-@app.route('/catalog/<int:category_id>/<int:item_id>/')
-def showItem(item_id):
+@app.route('/catalog/<int:category_id>/<int:item_id>', methods=['GET', 'POST'])
+def showItem(item_id, category_id):
 	item = session.query(Item).filter_by(
-		item_id=item_id).one()
-	return render_template('item.html', item_id=item_id)
+		id=item_id).one()
+	return render_template('item.html', item=item)
 
 # Create new item
 @app.route('/catalog/<int:category_id>/new', methods=['GET', 'POST'])
 def newItem(category_id):
-	categories = session.query(Category).filter_by(id=category_id).one()
+	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
 	if request.method == 'POST':
-		newItem = Item(item_name=request.form['name'],
+		new_Item = Item(item_name=request.form['name'],
 			 description=request.form['description'],
 			 date=request.form['date'],
 			 category_id=category_id,
 			 user_id=login_session['user_id'])
-		session.add(newItem)
+		session.add(new_Item)
 		session.commit()
 		flash("New Item Added Successfully")
-		return redirect(url_for('showCategory', category_id=category_id))
+		return redirect(url_for('showCategory', category=category))
 	else:
 		return render_template('new_item.html', category_id=category_id)
 

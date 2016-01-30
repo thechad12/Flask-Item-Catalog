@@ -2,23 +2,25 @@
 {% block content %}
 
 
-<div class="category header">
-	<h1>{{ category.name }}</h1>
+<div class="category-header">
+	<h1 style="color:#ffffff;">{{ category.name }}</h1>
 </div>
 
-<div class="btn new-item">
+<div class="btn-new-item">
 	<a href="{{url_for('newItem',
 	category_id=category.id)}}">Create New Item</a>
 </div>
 
 <div class="row">
 	<h3>Items</h3>
-		{% for i in item %}
-			<div class="item">
+		{% for item in items %}
+			<div class="item-list">
 				<h3>{{ item.item_name }}</h3>
-				<a href="{{url_for('editItem', item_id = item.id,
+				<p class="description">{{ item.description }}</p>
+				<a class="view" href="{{url_for('showItem', item_id = item.id, category_id = category.id)}}">View</a>
+				<a class="edit" href="{{url_for('editItem', item_id = item.id,
 				category_id = category.id)}}">Edit</a>
-				<a href="{{url_for('deleteItem', item_id = item.id,
+				<a class="delete" href="{{url_for('deleteItem', item_id = item.id,
 				category_id = category.id)}}">Delete</a>
 			</div>
 		{% endfor %}
