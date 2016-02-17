@@ -53,6 +53,13 @@ def showLogin():
 		for x in range(32))
 	login_session['state'] = state
 	return render_template('login.html', STATE=state)
+# Logout the user
+@app.route('/logout')
+def logout():
+	session.delete(login_session)
+	session.commit()
+	flash("You have successfully been logged out.")
+	return render_template('catalog.html')
 
 def createUser(login_session):
 	newUser = User(name=login_session['username'],
@@ -299,7 +306,7 @@ def newItem(category_id):
 	if 'username' not in login_session:
 		return redirect('/login')
 	if request.method == 'POST':
-		new_Item = Item(item_name=request.form['name'],
+		new_Item = Item(item_name=request.form['item_name'],
 			 description=request.form['description'],
 			 date=request.form['date'],
 			 category_id=category_id,
@@ -307,7 +314,7 @@ def newItem(category_id):
 		session.add(new_Item)
 		session.commit()
 		flash("New Item Added Successfully")
-		return redirect(url_for('showCategory', category=category))
+		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('new_item.html', category_id=category_id)
 
@@ -318,24 +325,22 @@ def editItem(category_id, item_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
-	if editItem.user_id != login_session['user_id']:
+	if editedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
 	if request.method == 'POST':
-		if request.form['name']:
-			editedItem.name = request.form['name']
-		if request.form['desctiption']:
+		if request.form['item_name']:
+			editedItem.name = request.form['item_name']
+		if request.form['description']:
 			editedItem.description = request.form['description']
 		if request.form['date']:
 			editedItem.date = request.form['date']
-		if request.form['picture']:
-			editedItem.picture = request.form['picture']
 		session.add(editedItem)
 		session.commit()
 		flash("Item edited successfully")
 		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('edit_item.html', category_id=category_id,
-			item_id=item_id)
+			item_id=item_id, editedItem=editedItem)
 
 # Delete existing item
 @app.route('/catalog/<int:category_id>/<int:item_id>/delete', methods=['GET', 'POST'])
@@ -349,6 +354,9 @@ def deleteItem(category_id, item_id):
 	if request.method == 'POST':
 		session.delete(deletedItem)
 		session.commit()
+		flash("Item successfully deleted")
+		return redirect(url_for('showCategory', category_id=category_id))
+	else:
 		return render_template('delete_item.html', category_id=category_id,
 			item_id=item_id)
 
