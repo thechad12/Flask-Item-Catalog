@@ -339,7 +339,7 @@ def editItem(category_id, item_id):
 		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
 	if request.method == 'POST':
 		if request.form['name']:
-			editedItem.name = request.form['name']
+			editedItem.item_name = request.form['name']
 		if request.form['description']:
 			editedItem.description = request.form['description']
 		if request.form['date']:
