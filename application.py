@@ -12,6 +12,8 @@ import httplib2
 import json
 from flask import make_response
 import requests
+import xml.etree.cElementTree as et
+
 
 app = Flask(__name__)
 
@@ -27,6 +29,12 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+#XML API endpoints
+@app.route('/categories/xml/')
+def categoriesXML():
+	tree = et.ElementTree()
+	categories=session.query(Category).all()
+	return categories(et.dump(tree), mimetype='application/xml')
 
 #JSON API endpoints
 @app.route('/categories/JSON/')
