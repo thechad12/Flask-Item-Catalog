@@ -1,3 +1,5 @@
+{% extends "main.html" %}
+{% block content %}
 <html>
 <head>
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js">
@@ -30,7 +32,7 @@
 
 <!--Google login-->
 <script>
-function signInCallBack(authResult) {
+function signInCallback(authResult) {
 	if (authResult['code']) {
 		$('#sign-in-button').hide();
 		$.ajax({
@@ -59,6 +61,7 @@ function signInCallBack(authResult) {
 }
 </script>
 
+<!--Facebook Login-->
 <script>
   window.fbAsyncInit = function() {
     FB.init({
@@ -76,3 +79,5 @@ function signInCallBack(authResult) {
      fjs.parentNode.insertBefore(js, fjs);
    }(document, 'script', 'facebook-jssdk'));
 </script>
+
+{% endblock %}

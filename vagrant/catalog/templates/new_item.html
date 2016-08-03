@@ -8,6 +8,7 @@
 
 <div class="row-new-item">
 	<form action="{{ url_for('newItem', category_id=category_id) }}" method='post'>
+<<<<<<< HEAD
 		<input type="hidden">
 		<div class="form">
 			<dl>
@@ -19,6 +20,16 @@
 					<label for="image">Image</label>
 					<input type="file" name="image">
 					<input type="submit">
+=======
+		<div class="form">
+			<dl>
+				<dt>Name:</dt>
+					<dd><input type ='text' size='30' name='name'></dd>
+				<dt>Description:</dt>
+					<dd><textarea name="description" cols="50" rows="10"></textarea></dd>
+				<dt>Date:</dt>
+					<dd><input type='text' size='30' name='date'></dd>
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 			</dl>
 			<p><button type='submit'>Create</button><p></form>
 		</div>

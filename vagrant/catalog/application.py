@@ -12,8 +12,11 @@ import httplib2
 import json
 from flask import make_response
 import requests
+<<<<<<< HEAD
 import xml.etree.cElementTree as et
 
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 app = Flask(__name__)
 
@@ -30,7 +33,10 @@ DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 #JSON API endpoints
 @app.route('/categories/JSON/')
 def categoriesJSON():
@@ -56,6 +62,7 @@ def showLogin():
 		for x in range(32))
 	login_session['state'] = state
 	return render_template('login.html', STATE=state)
+<<<<<<< HEAD
 # Logout the user
 @app.route('/logout')
 def logout():
@@ -63,6 +70,8 @@ def logout():
 	session.commit()
 	flash("You have successfully been logged out.")
 	return render_template('catalog.html')
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 def createUser(login_session):
 	newUser = User(name=login_session['username'],
@@ -87,7 +96,11 @@ def getUserId(email):
 # Google login session
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
+<<<<<<< HEAD
 	# Validate state token
+=======
+	 # Validate state token
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
     if request.args.get('state') != login_session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -97,6 +110,7 @@ def gconnect():
 
     try:
         # Upgrade the authorization code into a credentials object
+<<<<<<< HEAD
         oauth_flow = flow_from_clientsecrets('google.json', scope='')
         oauth_flow.redirect_uri = 'postmessage'
         credentials = oauth_flow.step2_exchange(code)
@@ -104,6 +118,17 @@ def gconnect():
         							#client_secret=google['web']['client_secret'],
         							#scope='',
         							#redirect_uri=oauth_flow.redirect_uri)
+=======
+        google = json.loads(open('google.json', 'r').read())
+        oauth_flow = flow_from_clientsecrets('./google.json', scope='')
+        oauth_flow.redirect_uri = 'postmessage'
+        client_id = google['web']['client_id']
+        credentials = oauth_flow.step2_exchange(code)
+        flow = OAuth2WebServerFlow(client_id=google['web']['client_id'],
+        							client_secret=google['web']['client_secret'],
+        							scope='',
+        							redirect_uri=oauth_flow.redirect_uri)
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
     except FlowExchangeError:
         response = make_response(
             json.dumps('Failed to upgrade the authorization code.'), 401)
@@ -112,7 +137,10 @@ def gconnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
+<<<<<<< HEAD
     print "access token" + " " + access_token
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
     url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
            % access_token)
     h = httplib2.Http()
@@ -132,33 +160,54 @@ def gconnect():
         return response
 
     # Verify that the access token is valid for this app.
+<<<<<<< HEAD
     if result['issued_to'] != CLIENT_ID:
+=======
+    if result['issued_to'] != client_id:
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
         response = make_response(
             json.dumps("Token's client ID does not match app's."), 401)
         print "Token's client ID does not match app's."
         response.headers['Content-Type'] = 'application/json'
         return response
 
+<<<<<<< HEAD
     stored_credentials = login_session.get('access_token')
+=======
+    stored_credentials = login_session.get('credentials.access_token')
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
     stored_gplus_id = login_session.get('gplus_id')
     if stored_credentials is not None and gplus_id == stored_gplus_id:
         response = make_response(json.dumps('Current user is already connected.'),200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
+<<<<<<< HEAD
     login_session['provider'] = 'google'
     login_session['credentials'] = credentials.to_json();
     login_session['access_token'] = credentials.access_token
     login_session['gplus_id'] = gplus_id
 
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
      # Get user info
     userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
     params = {'access_token': credentials.access_token, 'alt': 'json'}
     answer = requests.get(userinfo_url, params=params)
+<<<<<<< HEAD
     data = json.loads(answer.text)
 
 
     # Store the access token in the session for later use.
+=======
+    data = answer.json()
+
+
+    # Store the access token in the session for later use.
+    login_session['provider'] = 'google'
+    login_session['credentials'] = credentials.to_json();
+    login_session['gplus_id'] = gplus_id
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
@@ -182,6 +231,7 @@ def gconnect():
     print "done!"
     return output
 
+<<<<<<< HEAD
 @app.route('/gdisconnect')
 def gdisconnect():
     credentials = login_session.get('access_token')
@@ -210,6 +260,27 @@ def gdisconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     return render_template("catalog.html")
+=======
+
+@app.route('/gdisconnect')
+def gdisconnect():
+	#Disconnect a connected user
+	credentials = login_session.get('credentials')
+	if credentials is None:
+		response = make_response(
+			json.dumps('Current user not connected'), 401)
+		response.headers['Content-Type'] = 'application/json'
+		return response
+	access_token = credentials.access_token
+	url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+	h = httplib2.Http()
+	result = h.request(url, 'GET')[0]
+	if result['status'] != '200':
+	 	response = make_response(json.dumps
+	 		('Failed to revoke token for given user'), 400)
+	 	respon.headers['Content-Type'] = 'application/json'
+	 	return response
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 @app.route('/fbconnect')
 def fbconnect():
@@ -225,7 +296,11 @@ def fbconnect():
 	['web']['app_id']
 	app_secret = json.loads(open('facebook.json', 'r').read())
 	['web']['app_secret']
+<<<<<<< HEAD
 	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&CLIENT_ID=%s&client_secret=%s&fb_exchange_token=%s' % (
+=======
+	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
         app_id, app_secret, access_token)
 	h = httplib2.Http()
 	result = h.request(url, 'GET')[1]
@@ -318,6 +393,7 @@ def newItem(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
+<<<<<<< HEAD
 
 	image = request.files['image']
 	image_data = None
@@ -328,10 +404,15 @@ def newItem(category_id):
 
 	if request.method == 'POST':
 		new_Item = Item(item_name=request.form['item_name'],
+=======
+	if request.method == 'POST':
+		new_Item = Item(item_name=request.form['name'],
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 			 description=request.form['description'],
 			 date=request.form['date'],
 			 category_id=category_id,
 			 user_id=login_session['user_id'])
+<<<<<<< HEAD
 		if image_data:
 			item.image = image.filename
 			item.image_data = image_data
@@ -340,6 +421,12 @@ def newItem(category_id):
 		session.commit()
 		flash("New Item Added Successfully")
 		return redirect(url_for('showCategory', category_id=category_id))
+=======
+		session.add(new_Item)
+		session.commit()
+		flash("New Item Added Successfully")
+		return redirect(url_for('showCategory', category=category))
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 	else:
 		return render_template('new_item.html', category_id=category_id)
 
@@ -350,6 +437,7 @@ def editItem(category_id, item_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
+<<<<<<< HEAD
 	if editedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
 	if request.method == 'POST':
@@ -359,13 +447,30 @@ def editItem(category_id, item_id):
 			editedItem.description = request.form['description']
 		if request.form['date']:
 			editedItem.date = request.form['date']
+=======
+	if editItem.user_id != login_session['user_id']:
+		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
+	if request.method == 'POST':
+		if request.form['name']:
+			editedItem.name = request.form['name']
+		if request.form['desctiption']:
+			editedItem.description = request.form['description']
+		if request.form['date']:
+			editedItem.date = request.form['date']
+		if request.form['picture']:
+			editedItem.picture = request.form['picture']
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 		session.add(editedItem)
 		session.commit()
 		flash("Item edited successfully")
 		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('edit_item.html', category_id=category_id,
+<<<<<<< HEAD
 			item_id=item_id, editedItem=editedItem)
+=======
+			item_id=item_id)
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 # Delete existing item
 @app.route('/catalog/<int:category_id>/<int:item_id>/delete', methods=['GET', 'POST'])
@@ -374,16 +479,25 @@ def deleteItem(category_id, item_id):
 	deletedItem = session.query(Item).filter_by(id=item_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
+<<<<<<< HEAD
 	if deletedItem.user_id != login_session['user_id']:
+=======
+	if deleteItem.user_id != login_session['user_id']:
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 		return "<script>function myFunction() {alert('You are not authorized to delete this item.')}</script>"
 	if request.method == 'POST':
 		session.delete(deletedItem)
 		session.commit()
+<<<<<<< HEAD
 		flash("Item successfully deleted")
 		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('delete_item.html', category_id=category_id,
 			item_id=item_id, deletedItem=deletedItem)
+=======
+		return render_template('delete_item.html', category_id=category_id,
+			item_id=item_id)
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 
 

@@ -6,6 +6,7 @@
 	<h1>Edit Item</h1>
 </div>
 
+<<<<<<< HEAD
 <div class="row-edit-item">
 	<form action="{{ url_for('editItem', category_id=category_id, item_id=item_id) }}" method='POST'>
 		<input type="hidden">
@@ -23,9 +24,32 @@
 					name="date" value="{{editedItem.date}}">
 					<button type="submit">
 						<span class="glyphicon glyphicon-ok" aria-hidden="true"></span>Save</button>
+=======
+<div class="row-new-item">
+	<form action="#" method="post">
+		<div class="form-group">
+		<label for="name">Name:</label>
+		<input type="text" maxlength="100" class="form-control"
+		name="name" value="{{item.item_name}}">
+
+		<label for="description">Description:</label>
+		<textarea class="form-control" maxlength="250"
+		rows="3" name="description">{{item.description}}</textarea>
+
+		<label for="date">Date created:</label>
+		<input type="text" maxlength="10" class="form-control"
+		name="date" value="{{item.date}}">
+		<button type="submit" class="btn btn-default"
+		id="submit" type="submit">
+		<span class="glyphicon glyphicon-ok" aria-hidden="true"
+		></span>Save</button>
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 		</div>
 	</form>
 </div>
 
+<<<<<<< HEAD
 {% endblock %}
 
+=======
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6

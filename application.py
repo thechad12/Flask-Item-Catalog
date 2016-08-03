@@ -12,6 +12,8 @@ import httplib2
 import json
 from flask import make_response
 import requests
+import xml.etree.cElementTree as et
+
 
 app = Flask(__name__)
 
@@ -27,6 +29,12 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+#XML API endpoints
+@app.route('/categories/xml/')
+def categoriesXML():
+	tree = et.ElementTree()
+	categories=session.query(Category).all()
+	return categories(et.dump(tree), mimetype='application/xml')
 
 #JSON API endpoints
 @app.route('/categories/JSON/')
@@ -39,25 +47,52 @@ def itemsJSON():
 	items = session.query(Item).all()
 	return jsonify(items=[i.serialize for i in items])
 
-@app.route('/category/JSON/')
+@app.route('/category/<int:category_id>/JSON/')
 def categoryJSON(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	items = session.query(Item).filter_by(category_id=category_id).all()
 	return jsonify(items=[i.serialize for i in items])
 
 # Create anti-forgery state token
-@app.route('/login')
+@app.route('/login/')
 def showLogin():
 	state = ''.join(random.choice(
 		string.ascii_uppercase + string.digits)
 		for x in range(32))
 	login_session['state'] = state
 	return render_template('login.html', STATE=state)
+# Logout the user
+@app.route('/logout')
+def logout():
+	session.delete(login_session)
+	session.commit()
+	flash("You have successfully been logged out.")
+	return render_template('catalog.html')
+
+def createUser(login_session):
+	newUser = User(name=login_session['username'],
+		email=login_session['email'], picture=login_session['picture'])
+	session.add(newUser)
+	session.commit()
+	user = session.query(User).filter_by(email=login_session['email']).one()
+	return user.id
+
+def getUserInfo(user_id):
+	user = User(name=login_session['username'],
+		email=login_session['email'], picture=login_session['picture'])
+	return user
+
+def getUserId(email):
+	try:
+		user = session.query(User).filter_by(email=email).one()
+		return user.id
+	except:
+		return None
 
 # Google login session
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
-	 # Validate state token
+	# Validate state token
     if request.args.get('state') != login_session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -67,14 +102,13 @@ def gconnect():
 
     try:
         # Upgrade the authorization code into a credentials object
-        google = json.loads(open('google.json', 'r').read())
         oauth_flow = flow_from_clientsecrets('google.json', scope='')
         oauth_flow.redirect_uri = 'postmessage'
         credentials = oauth_flow.step2_exchange(code)
-        flow = OAuth2WebServerFlow(client_id=google['client_id'],
-        							client_secret=google['client_secret'],
-        							scope='',
-        							redirect_uri=oauth_flow.redirect_uri)
+        #flow = OAuth2WebServerFlow(CLIENT_ID=google['web']['CLIENT_ID'],
+        							#client_secret=google['web']['client_secret'],
+        							#scope='',
+        							#redirect_uri=oauth_flow.redirect_uri)
     except FlowExchangeError:
         response = make_response(
             json.dumps('Failed to upgrade the authorization code.'), 401)
@@ -83,10 +117,11 @@ def gconnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
+    print "access token" + " " + access_token
     url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
            % access_token)
     h = httplib2.Http()
-    http = credentials.authroize(h)
+    http = credentials.authorize(h)
     result = json.loads(h.request(url, 'GET')[1])
     # If there was an error in the access token info, abort.
     if result.get('error') is not None:
@@ -109,31 +144,34 @@ def gconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
 
-    stored_credentials = login_session.get('credentials.access_token')
+    stored_credentials = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_credentials is not None and gplus_id == stored_gplus_id:
         response = make_response(json.dumps('Current user is already connected.'),200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
-    # Store the access token in the session for later use.
     login_session['provider'] = 'google'
     login_session['credentials'] = credentials.to_json();
+    login_session['access_token'] = credentials.access_token
     login_session['gplus_id'] = gplus_id
-    login_session['username'] = data['name']
-    login_session['picture'] = data['picture']
-    login_session['email'] = data['email']
-    login_session['user_id'] = user_id
 
-    # Get user info
+     # Get user info
     userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
     params = {'access_token': credentials.access_token, 'alt': 'json'}
     answer = requests.get(userinfo_url, params=params)
+    data = json.loads(answer.text)
 
-    data = answer.json()
+
+    # Store the access token in the session for later use.
+    login_session['username'] = data['name']
+    login_session['picture'] = data['picture']
+    login_session['email'] = data['email']
+    user_id = getUserId(login_session['email'])
+    login_session['user_id'] = user_id
 
 
-    user_id = getUserID(login_session['email'])
+
     if not user_id:
         user_id = createUser(login_session)
 
@@ -149,101 +187,34 @@ def gconnect():
     print "done!"
     return output
 
-  # Normally, the state is a one-time token; however, in this example,
-  # we want the user to be able to connect and disconnect
-  # without reloading the page.  Thus, for demonstration, we don't
-  # implement this best practice.
-  # del session['state']
-
- #	code = request.data
-
-#	try:
-    # Upgrade the authorization code into a credentials object
- #   		oauth_flow = flow_from_clientsecrets('google.json', scope='')
-  #  		oauth_flow.redirect_uri = 'postmessage'
-   # 		credentials = oauth_flow.step2_exchange(code)
-
-#	except FlowExchangeError:
- #   		response = make_response(
-  #      	json.dumps('Failed to upgrade the authorization code.'), 401)
-   # 		response.headers['Content-Type'] = 'application/json'
-    #		return response
-
-  # An ID Token is a cryptographically-signed JSON object encoded in base 64.
-  # Normally, it is critical that you validate an ID Token before you use it,
-  # but since you are communicating directly with Google over an
-  # intermediary-free HTTPS channel and using your Client Secret to
-  # authenticate yourself to Google, you can be confident that the token you
-  # receive really comes from Google and is valid. If your server passes the
-  # ID Token to other components of your app, it is extremely important that
-  # the other components validate the token before using it.
-#	gplus_id = credentials.id_token['sub']
-#	stored_credentials = session.get('credentials')
-#	stored_gplus_id = session.get('gplus_id')
-
-#	if stored_credentials is not None and gplus_id == stored_gplus_id:
- #   		response = make_response(json.dumps('Current user is already connected.'),
-  #                           200)
-   # 		response.headers['Content-Type'] = 'application/json'
-    #		return response
-  # Store the access token in the session for later use.
-#	login_session['credentials'] = credentials.access_token
-#	login_session['gplus_id'] = gplus_id
-#	response = make_response(json.dumps('Successfully connected user.'), 200)
-#	response.headers['Content-Type'] = 'application/json'
-#	return response
-
-#	output = ''
-#	output += '<h1>Welcome, '
-#	output += login_session['username']
-#	output += '!</h1>'
-#	output += '<img src="'
-#	output += login_session['picture']
-#	output += ' " style = "width: 300px; height: 300px;\
-#	border-radius: 150px; -webkit-border-radius: 150px;\
-#	-moz-border-radius: 150px"> '
-#	flash("You are now logged in as %s" % login_session['username'])
-#	print "Done!"
-#	return output
-
-def createUser(login_session):
-	newUser = User(name=login_session['username'],
-		email=login_session['email'], picture=login_session['picture'])
-	session.add(newUser)
-	session.commit()
-	user = session.query(User).filter_by(email=login_session['email']).one()
-	return user.id
-
-def getUserInfo(user_id):
-	user = User(name=login_session['username'],
-		email=login_session['email'], picture=login_session['picture'])
-	return user
-
-def getUserId(email):
-	try:
-		user = session.query(User).filter_by(email=email).one()
-		return user.id
-	except:
-		return None
-
 @app.route('/gdisconnect')
 def gdisconnect():
-	#Disconnect a connected user
-	credentials = login_session.get('credentials')
-	if credentials is None:
-		response = make_response(
-			json.dumps('Current user not connected'), 401)
-		response.headers['Content-Type'] = 'application/json'
-		return response
-	access_token = credentials.access_token
-	url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
-	h = httplib2.Http()
-	result = h.request(url, 'GET')[0]
-	if result['status'] != '200':
-	 	response = make_response(json.dumps
-	 		('Failed to revoke token for given user'), 400)
-	 	respon.headers['Content-Type'] = 'application/json'
-	 	return response
+    credentials = login_session.get('access_token')
+    print "in gdisconnect credentials === ", credentials
+    if credentials is None:
+        response = make_response(
+            json.dumps('Current user is not connected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Execute HTTP GET request to revoke current token.
+    access_token = credentials
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    print "url ====", url
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+    print "result ==== ", result
+    if result['status'] == '200':
+        response = make_response(
+            json.dumps('Successfully disconnected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    else:
+        # For whatever reason, the given token was invalid.
+        response = make_response(
+            json.dumps('Failed to revoke token for given user.'), 400)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    return render_template("catalog.html")
 
 @app.route('/fbconnect')
 def fbconnect():
@@ -259,7 +230,7 @@ def fbconnect():
 	['web']['app_id']
 	app_secret = json.loads(open('facebook.json', 'r').read())
 	['web']['app_secret']
-	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (
+	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&CLIENT_ID=%s&client_secret=%s&fb_exchange_token=%s' % (
         app_id, app_secret, access_token)
 	h = httplib2.Http()
 	result = h.request(url, 'GET')[1]
@@ -332,33 +303,33 @@ def catalog():
  		return render_template('privatecatalog.html', category=category)
 
 # Show one category with items
-@app.route('/catalog/<int:category_id>/')
+@app.route('/catalog/<int:category_id>/', methods=['GET', 'POST'])
 def showCategory(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	items = session.query(Item).filter_by(
 		category_id=category_id).all()
-	return render_template('category.html', category=category)
+	return render_template('category.html', items=items, category=category)
 
 # Show item with description
-@app.route('/catalog/<int:category_id>/<int:item_id>/')
-def showItem(item_id):
+@app.route('/catalog/<int:category_id>/<int:item_id>', methods=['GET', 'POST'])
+def showItem(item_id, category_id):
 	item = session.query(Item).filter_by(
-		item_id=item_id).one()
-	return render_template('item.html', item_id=item_id)
+		id=item_id).one()
+	return render_template('item.html', item=item)
 
 # Create new item
 @app.route('/catalog/<int:category_id>/new', methods=['GET', 'POST'])
 def newItem(category_id):
-	categories = session.query(Category).filter_by(id=category_id).one()
+	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
 	if request.method == 'POST':
-		newItem = Item(item_name=request.form['name'],
+		new_Item = Item(item_name=request.form['item_name'],
 			 description=request.form['description'],
 			 date=request.form['date'],
 			 category_id=category_id,
 			 user_id=login_session['user_id'])
-		session.add(newItem)
+		session.add(new_Item)
 		session.commit()
 		flash("New Item Added Successfully")
 		return redirect(url_for('showCategory', category_id=category_id))
@@ -372,24 +343,22 @@ def editItem(category_id, item_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
-	if editItem.user_id != login_session['user_id']:
+	if editedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
 	if request.method == 'POST':
 		if request.form['name']:
-			editedItem.name = request.form['name']
-		if request.form['desctiption']:
+			editedItem.item_name = request.form['name']
+		if request.form['description']:
 			editedItem.description = request.form['description']
 		if request.form['date']:
 			editedItem.date = request.form['date']
-		if request.form['picture']:
-			editedItem.picture = request.form['picture']
 		session.add(editedItem)
 		session.commit()
 		flash("Item edited successfully")
 		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('edit_item.html', category_id=category_id,
-			item_id=item_id)
+			item_id=item_id, editedItem=editedItem)
 
 # Delete existing item
 @app.route('/catalog/<int:category_id>/<int:item_id>/delete', methods=['GET', 'POST'])
@@ -398,13 +367,16 @@ def deleteItem(category_id, item_id):
 	deletedItem = session.query(Item).filter_by(id=item_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
-	if deleteItem.user_id != login_session['user_id']:
+	if deletedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to delete this item.')}</script>"
 	if request.method == 'POST':
 		session.delete(deletedItem)
 		session.commit()
+		flash("Item successfully deleted")
+		return redirect(url_for('showCategory', category_id=category_id))
+	else:
 		return render_template('delete_item.html', category_id=category_id,
-			item_id=item_id)
+			item_id=item_id, deletedItem=deletedItem)
 
 
 

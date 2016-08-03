@@ -1,15 +1,25 @@
 {% extends "main.html" %}
 {% block content %}
 
+<<<<<<< HEAD
 <h3>Are you sure you want to delete {{deletedItem.item_name}}? </h3>
 
 <form action="{{ url_for('deleteItem', category_id=category_id, item_id=item_id) }}" method="post">
+=======
+<h3>Are you sure you want to delete {{item.item_name}}? </h3>
+
+<form action="#" method="post">
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 
 	<button type="submit" class="btn btn-default delete" id="submit"
 	type="submit">
 	<span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
 	Delete</button>
+<<<<<<< HEAD
 	<a href = "{{url_for('showCategory', category_id=category_id)}}">
+=======
+	<a href = "{{url_for('showCategory')}}">
+>>>>>>> 42f930646aa82e3fa861f26faed66c4929ff13f6
 		<button class="btn btn-default delete">
 		<span class="glyphicon glyphicon-remove" aria-hidden="true"></span>Cancel</button>
 	</a>
