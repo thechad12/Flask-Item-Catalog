@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
@@ -33,7 +33,9 @@ class Item(Base):
 	id = Column(Integer, primary_key=True)
 	item_name = Column(String(250), nullable=False)
 	description = Column(String, nullable=False)
-	date = Column(String(250))
+	date = Column(DateTime, nullable=False)
+	image = Column(String, nullable=True)
+	image_data = Column(LargeBinary, nullable=True)
 	category_id = Column(Integer, ForeignKey('category.id'))
 	category = relationship(Category)
 	user_id = Column(Integer, ForeignKey('user.id'))

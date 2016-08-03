@@ -12,6 +12,8 @@ import httplib2
 import json
 from flask import make_response
 import requests
+import xml.etree.cElementTree as et
+
 
 app = Flask(__name__)
 
@@ -26,6 +28,7 @@ Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
+
 
 
 #JSON API endpoints
@@ -84,7 +87,7 @@ def getUserId(email):
 # Google login session
 @app.route('/gconnect', methods=['POST'])
 def gconnect():
-	 # Validate state token
+	# Validate state token
     if request.args.get('state') != login_session['state']:
         response = make_response(json.dumps('Invalid state parameter.'), 401)
         response.headers['Content-Type'] = 'application/json'
@@ -94,15 +97,13 @@ def gconnect():
 
     try:
         # Upgrade the authorization code into a credentials object
-        google = json.loads(open('google.json', 'r').read())
-        oauth_flow = flow_from_clientsecrets('./google.json', scope='')
+        oauth_flow = flow_from_clientsecrets('google.json', scope='')
         oauth_flow.redirect_uri = 'postmessage'
-        client_id = google['web']['client_id']
         credentials = oauth_flow.step2_exchange(code)
-        flow = OAuth2WebServerFlow(client_id=google['web']['client_id'],
-        							client_secret=google['web']['client_secret'],
-        							scope='',
-        							redirect_uri=oauth_flow.redirect_uri)
+        #flow = OAuth2WebServerFlow(CLIENT_ID=google['web']['CLIENT_ID'],
+        							#client_secret=google['web']['client_secret'],
+        							#scope='',
+        							#redirect_uri=oauth_flow.redirect_uri)
     except FlowExchangeError:
         response = make_response(
             json.dumps('Failed to upgrade the authorization code.'), 401)
@@ -111,6 +112,7 @@ def gconnect():
 
     # Check that the access token is valid.
     access_token = credentials.access_token
+    print "access token" + " " + access_token
     url = ('https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=%s'
            % access_token)
     h = httplib2.Http()
@@ -130,31 +132,33 @@ def gconnect():
         return response
 
     # Verify that the access token is valid for this app.
-    if result['issued_to'] != client_id:
+    if result['issued_to'] != CLIENT_ID:
         response = make_response(
             json.dumps("Token's client ID does not match app's."), 401)
         print "Token's client ID does not match app's."
         response.headers['Content-Type'] = 'application/json'
         return response
 
-    stored_credentials = login_session.get('credentials.access_token')
+    stored_credentials = login_session.get('access_token')
     stored_gplus_id = login_session.get('gplus_id')
     if stored_credentials is not None and gplus_id == stored_gplus_id:
         response = make_response(json.dumps('Current user is already connected.'),200)
         response.headers['Content-Type'] = 'application/json'
         return response
 
+    login_session['provider'] = 'google'
+    login_session['credentials'] = credentials.to_json();
+    login_session['access_token'] = credentials.access_token
+    login_session['gplus_id'] = gplus_id
+
      # Get user info
     userinfo_url = "https://www.googleapis.com/oauth2/v1/userinfo"
     params = {'access_token': credentials.access_token, 'alt': 'json'}
     answer = requests.get(userinfo_url, params=params)
-    data = answer.json()
+    data = json.loads(answer.text)
 
 
     # Store the access token in the session for later use.
-    login_session['provider'] = 'google'
-    login_session['credentials'] = credentials.to_json();
-    login_session['gplus_id'] = gplus_id
     login_session['username'] = data['name']
     login_session['picture'] = data['picture']
     login_session['email'] = data['email']
@@ -178,25 +182,34 @@ def gconnect():
     print "done!"
     return output
 
-
 @app.route('/gdisconnect')
 def gdisconnect():
-	#Disconnect a connected user
-	credentials = login_session.get('credentials')
-	if credentials is None:
-		response = make_response(
-			json.dumps('Current user not connected'), 401)
-		response.headers['Content-Type'] = 'application/json'
-		return response
-	access_token = credentials.access_token
-	url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
-	h = httplib2.Http()
-	result = h.request(url, 'GET')[0]
-	if result['status'] != '200':
-	 	response = make_response(json.dumps
-	 		('Failed to revoke token for given user'), 400)
-	 	respon.headers['Content-Type'] = 'application/json'
-	 	return response
+    credentials = login_session.get('access_token')
+    print "in gdisconnect credentials === ", credentials
+    if credentials is None:
+        response = make_response(
+            json.dumps('Current user is not connected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    # Execute HTTP GET request to revoke current token.
+    access_token = credentials
+    url = 'https://accounts.google.com/o/oauth2/revoke?token=%s' % access_token
+    print "url ====", url
+    h = httplib2.Http()
+    result = h.request(url, 'GET')[0]
+    print "result ==== ", result
+    if result['status'] == '200':
+        response = make_response(
+            json.dumps('Successfully disconnected.'), 200)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    else:
+        # For whatever reason, the given token was invalid.
+        response = make_response(
+            json.dumps('Failed to revoke token for given user.'), 400)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    return render_template("catalog.html")
 
 @app.route('/fbconnect')
 def fbconnect():
@@ -212,7 +225,7 @@ def fbconnect():
 	['web']['app_id']
 	app_secret = json.loads(open('facebook.json', 'r').read())
 	['web']['app_secret']
-	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s' % (
+	url = 'https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&CLIENT_ID=%s&client_secret=%s&fb_exchange_token=%s' % (
         app_id, app_secret, access_token)
 	h = httplib2.Http()
 	result = h.request(url, 'GET')[1]
@@ -305,12 +318,24 @@ def newItem(category_id):
 	category = session.query(Category).filter_by(id=category_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
+
+	image = request.files['image']
+	image_data = None
+
+	if image:
+		return render_template('new_item.html', category_id=category_id)
+		image_data = image.read()
+
 	if request.method == 'POST':
 		new_Item = Item(item_name=request.form['item_name'],
 			 description=request.form['description'],
 			 date=request.form['date'],
 			 category_id=category_id,
 			 user_id=login_session['user_id'])
+		if image_data:
+			item.image = image.filename
+			item.image_data = image_data
+
 		session.add(new_Item)
 		session.commit()
 		flash("New Item Added Successfully")
@@ -328,8 +353,8 @@ def editItem(category_id, item_id):
 	if editedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to edit this item.')}</script>"
 	if request.method == 'POST':
-		if request.form['item_name']:
-			editedItem.name = request.form['item_name']
+		if request.form['name']:
+			editedItem.item_name = request.form['name']
 		if request.form['description']:
 			editedItem.description = request.form['description']
 		if request.form['date']:
@@ -349,7 +374,7 @@ def deleteItem(category_id, item_id):
 	deletedItem = session.query(Item).filter_by(id=item_id).one()
 	if 'username' not in login_session:
 		return redirect('/login')
-	if deleteItem.user_id != login_session['user_id']:
+	if deletedItem.user_id != login_session['user_id']:
 		return "<script>function myFunction() {alert('You are not authorized to delete this item.')}</script>"
 	if request.method == 'POST':
 		session.delete(deletedItem)
@@ -358,7 +383,7 @@ def deleteItem(category_id, item_id):
 		return redirect(url_for('showCategory', category_id=category_id))
 	else:
 		return render_template('delete_item.html', category_id=category_id,
-			item_id=item_id)
+			item_id=item_id, deletedItem=deletedItem)
 
 
 
